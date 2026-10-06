@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Thesis Survey</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div
+      id="progress"
+      role="progressbar"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow="0"
+    >
+      <div id="bar"></div>
+    </div>
+    <main id="app"></main>
+
+    <script>
+      const QUESTIONS = [
+        {
+          type: "text",
+          text: "What makes human human?",
+        },
+        {
+          type: "scale",
+          text: "In what degree does religion define you as a person?",
+          low: "Not at all",
+          high: "Completely",
+        },
+        {
+          type: "scale",
+          text: "In what degree does relationship define you as a person?",
+          low: "Not at all",
+          high: "Completely",
+        },
+        {
+          type: "scale",
+          text: "In what degree does morality define you as a person?",
+          low: "Not at all",
+          high: "Completely",
+        },
+        {
+          type: "scale",
+          text: "In what degree does freedom define you as a person?",
+          low: "Not at all",
+          high: "Completely",
+        },
+        {
+          type: "scale",
+          text: "In what degree does objects define you as a person?",
+          low: "Not at all",
+          high: "Completely",
+        },
+        {
+          type: "scale",
+          text: "In what degree does ego define you as a person?",
+          low: "Not at all",
+          high: "Completely",
+        },
+        {
+          type: "text",
+          text: "If not listed..what else?",
+        },
+        {
+          type: "choice",
+          text: "which one is the most important among all when defining yourself?",
+          options: [
+            "religion",
+            "relationship",
+            "morality",
+            "freedom",
+            "object",
+            "ego",
+          ],
+        },
+        {
+          type: "text",
+          text: "Is there a meaning in life for you? Where does it come from?",
+        },
+        {
+          type: "text",
+          text: "Where does your happiness come from?",
+        },
+        {
+          type: "text",
+          text: "What is your one flaw(something that does not fit in the society's standard, something you don't like about yourself, something you think you need improvement in)?",
+        },
+        {
+          type: "text",
+          text: "Why do you think so?",
+        },
+        {
+          type: "text",
+          text: "Think of one positive part about your 'flaw'.",
+        },
+        {
+          type: "text",
+          text: "Did any of the questions made you think about yourself deeper? Or which one was your favorite?",
+        },
+      ];
+      // -----------------------------------------------------------------------------
+
+      const app = document.getElementById("app");
+      const bar = document.getElementById("bar");
+      const progress = document.getElementById("progress");
+      const SKIP_TEXT = "I do not care / I have never thought about it";
+      const total = QUESTIONS.length;
+      let index = 0;
+      let answers = new Array(total).fill("");
+      let drafts = new Array(total).fill(""); // keeps typed text if the box is ticked then unticked
+
+      function setProgress(fraction) {
+        const pct = Math.round(fraction * 100);
+        bar.style.width = pct + "%";
+        progress.setAttribute("aria-valuenow", pct);
+      }
+
+      function isAnswered(i) {
+        const q = QUESTIONS[i];
+        return q.required === false || String(answers[i]).trim() !== "";
+      }
+
+      function render() {
+        const q = QUESTIONS[index];
+        setProgress(index / total);
+        const isLast = index === total - 1;
+
+        app.innerHTML = `
+    <p class="count">Question ${index + 1} of ${total}</p>
+    <h1></h1>
+    <div id="input"></div>
+    <label class="skip">
+      <input type="checkbox" id="skip" ${answers[index] === SKIP_TEXT ? "checked" : ""} />
+      <span>${SKIP_TEXT}</span>
+    </label>
+    <div class="error" id="error" role="alert"></div>
+    <div class="nav">
+      <button class="btn ghost" id="back" ${index === 0 ? "disabled" : ""}>Back</button>
+      <button class="btn" id="next">${isLast ? "Submit survey" : "Next"}</button>
+    </div>`;
+        app.querySelector("h1").textContent = q.text;
+
+        const box = document.getElementById("input");
+        if (q.type === "choice") {
+          box.className = "options";
+          q.options.forEach((opt) => box.appendChild(optionButton(opt, opt)));
+        } else if (q.type === "scale") {
+          box.innerHTML = `<div class="scale"></div><div class="scale-labels"><span>${q.low}</span><span>${q.high}</span></div>`;
+          for (let n = 1; n <= 5; n++)
+            box.firstChild.appendChild(optionButton(String(n), String(n)));
+        } else {
+          const skipped = answers[index] === SKIP_TEXT;
+          const ta = document.createElement("textarea");
+          ta.value = skipped ? "" : answers[index];
+          ta.disabled = skipped;
+          ta.setAttribute("aria-label", q.text);
+          ta.placeholder = q.required === false ? "Optional" : "";
+          ta.addEventListener("input", () => {
+            answers[index] = ta.value;
+            drafts[index] = ta.value;
+            updateNext();
+          });
+          box.appendChild(ta);
+          if (!skipped) ta.focus();
+        }
+
+        document.getElementById("skip").onchange = (e) => {
+          if (e.target.checked) {
+            answers[index] = SKIP_TEXT;
+          } else {
+            answers[index] = q.type === "text" ? drafts[index] : "";
+          }
+          render();
+        };
+
+        document.getElementById("back").onclick = () => {
+          index--;
+          render();
+        };
+        document.getElementById("next").onclick = isLast
+          ? submit
+          : () => {
+              index++;
+              render();
+            };
+        updateNext();
+      }
+
+      function optionButton(label, value) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "option";
+        b.textContent = label;
+        b.setAttribute("aria-pressed", String(answers[index] === value));
+        b.onclick = () => {
+          answers[index] = value;
+          document.getElementById("skip").checked = false;
+          b.parentElement
+            .querySelectorAll(".option")
+            .forEach((el) => el.setAttribute("aria-pressed", String(el === b)));
+          updateNext();
+        };
+        return b;
+      }
+
+      function updateNext() {
+        document.getElementById("next").disabled = !isAnswered(index);
+      }
+
+      async function submit() {
+        const btn = document.getElementById("next");
+        const err = document.getElementById("error");
+        btn.disabled = true;
+        err.textContent = "";
+        const payload = QUESTIONS.map((q, i) => ({
+          question: q.text,
+          answer: answers[i],
+        }));
+        try {
+          const res = await fetch("/submit", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) throw new Error("Server responded with " + res.status);
+          showThanks();
+        } catch (e) {
+          err.textContent =
+            "Your answers weren't saved: " +
+            e.message +
+            ". Check that the server is running, then try again.";
+          btn.disabled = false;
+        }
+      }
+
+      function showThanks() {
+        setProgress(1);
+        app.innerHTML = `
+    <div class="done">
+      <h2>Thank you for submitting the survey</h2>
+      <p>Your answers have been saved.</p>
+      <button class="btn" id="reset">Reset survey</button>
+    </div>`;
+        document.getElementById("reset").onclick = () => {
+          index = 0;
+          answers = new Array(total).fill("");
+          drafts = new Array(total).fill("");
+          render();
+        };
+      }
+
+      render();
+    </script>
+  </body>
+</html>
